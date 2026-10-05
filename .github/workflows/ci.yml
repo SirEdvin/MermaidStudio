@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           docker run -d --name smoke -e PORT=18763 -p 127.0.0.1:18763:18763 mermaidstudio:verify
           trap 'docker logs smoke; docker rm -f smoke' EXIT
-          curl --retry 15 --retry-connrefused --retry-delay 1 --fail -D headers.txt http://127.0.0.1:18763/index.html -o index.html
+          curl --retry 15 --retry-all-errors --retry-delay 1 --fail -D headers.txt http://127.0.0.1:18763/index.html -o index.html
           grep -qi 'Cross-Origin-Opener-Policy: same-origin' headers.txt
           grep -qi 'Cross-Origin-Embedder-Policy: require-corp' headers.txt
           grep -q 'MermaidStudio' index.html
