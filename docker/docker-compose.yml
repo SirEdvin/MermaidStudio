@@ -3,16 +3,16 @@ name: mermaidstudio
 services:
   web:
     container_name: mermaidstudio
-    image: mermaidstudio:latest
+    image: ghcr.io/siredvin/mermaidstudio:0.9.3
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - "3000:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/index.html"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/index.html"]
       interval: 30s
       timeout: 10s
       retries: 3

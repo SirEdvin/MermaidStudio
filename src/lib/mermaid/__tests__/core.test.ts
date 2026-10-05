@@ -78,28 +78,28 @@ describe('Mermaid Core SVG Sanitization', () => {
       expect(result.error).toContain('exceeds maximum line count');
     });
 
-    it('should detect malicious patterns like script tags', async () => {
+    it('passes invalid script-shaped text to the Mermaid parser', async () => {
       const maliciousContent = 'flowchart TD\n  A --> B\n  C --> D<script>alert("xss")</script>';
       const result = await renderDiagram(maliciousContent, 'test-id');
 
       expect(result.svg).toBe('');
-      expect(result.error).toContain('malicious');
+      expect(result.error).toContain('Parse error');
     });
 
-    it('should detect javascript: protocol', async () => {
+    it('passes invalid javascript-shaped text to the Mermaid parser', async () => {
       const maliciousContent = 'flowchart TD\n  A --> B[javascript:alert("xss")]';
       const result = await renderDiagram(maliciousContent, 'test-id');
 
       expect(result.svg).toBe('');
-      expect(result.error).toContain('malicious');
+      expect(result.error).toContain('Parse error');
     });
 
-    it('should detect event handlers', async () => {
+    it('passes invalid event-handler-shaped text to the Mermaid parser', async () => {
       const maliciousContent = 'flowchart TD\n  A[onclick="alert(\'xss\')"] --> B';
       const result = await renderDiagram(maliciousContent, 'test-id');
 
       expect(result.svg).toBe('');
-      expect(result.error).toContain('malicious');
+      expect(result.error).toContain('Parse error');
     });
 
     it('should allow valid diagrams within limits', async () => {

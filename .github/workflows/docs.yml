@@ -1,21 +1,7 @@
 name: Documentation Maintenance
 
 on:
-  push:
-    paths:
-      - 'docs/**'
-      - 'src/**'
-      - 'README.md'
-      - '.github/workflows/docs.yml'
-  pull_request:
-    paths:
-      - 'docs/**'
-      - 'src/**'
-      - 'README.md'
-      - '.github/workflows/docs.yml'
-  schedule:
-    # Run daily at 2 AM UTC
-    - cron: '0 2 * * *'
+  # Legacy upstream automation is opt-in in this fork.
   workflow_dispatch:
 
 jobs:

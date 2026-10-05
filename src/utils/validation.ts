@@ -1,6 +1,6 @@
 /**
  * Input validation utilities for diagram content and titles.
- * Provides comprehensive XSS prevention and size/limit validation.
+ * Enforces size limits; rendered SVG is sanitized separately with DOMPurify.
  */
 
 /**
@@ -32,21 +32,9 @@ export interface ValidationResult {
 }
 
 /**
- * Suspicious patterns that may indicate XSS or malicious content
- * These patterns are detected case-insensitively
- */
-const SUSPICIOUS_PATTERNS = [
-  /<script/i, // Script tags
-  /javascript:/i, // JavaScript protocol
-  /on\w+\s*=/i, // Event handlers (onclick, onerror, etc.)
-  /<iframe/i, // Iframe tags
-  /<object/i, // Object tags
-  /<embed/i, // Embed tags
-];
-
-/**
- * Validates diagram content for size, line count, and malicious patterns.
- * This is a critical security function to prevent XSS attacks and DoS via oversized content.
+ * Validates diagram content for size and line count.
+ * Raw-content pattern rejection is intentionally disabled in this fork.
+ * This is not a security verdict: SVG output must still be sanitized.
  *
  * @param content - The diagram content to validate
  * @returns ValidationResult indicating if content is valid and any error message
@@ -82,17 +70,6 @@ export function validateDiagramContent(content: string): ValidationResult {
       valid: false,
       error: `Content exceeds maximum line count of ${LIMITS.MAX_DIAGRAM_LINES}`,
     };
-  }
-
-  // Check for suspicious/malicious patterns
-  for (const pattern of SUSPICIOUS_PATTERNS) {
-    if (pattern.test(content)) {
-      return {
-        valid: false,
-        error:
-          'Content contains potentially malicious code (script tags, event handlers, or dangerous HTML elements)',
-      };
-    }
   }
 
   return { valid: true };

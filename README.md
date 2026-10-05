@@ -1,5 +1,10 @@
 # MermaidStudio
 
+> SirEdvin's customized fork: fixes fullscreen panning, removes the fullscreen
+> 500% zoom cap, disables raw-content pattern rejection, and publishes an
+> unprivileged dynamic-port container to GHCR. See [fork documentation](docs/fork.md)
+> and [release notes](docs/fork-release-notes.md). SVG sanitization remains enabled.
+
 [![Version](https://img.shields.io/github/package-json/v/CatFoxVoyager/MermaidStudio?label=version&color=blue)](https://github.com/CatFoxVoyager/MermaidStudio/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/typescript-6.0.3-blue.svg)](https://www.typescriptlang.org/)

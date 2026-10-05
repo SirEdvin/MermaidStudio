@@ -1,386 +1,108 @@
-name: CI/CD Pipeline
+name: Build, test and release
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main]
+    tags: ['v*']
   pull_request:
-    branches: [ main, develop ]
+    branches: [main]
+  workflow_dispatch:
 
-env:
-  NODE_VERSION: '24'
-  PNPM_VERSION: '10'
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  lint:
-    name: Lint & Type Check
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run ESLint
-        run: pnpm run lint
-
-      - name: Type check
-        run: pnpm run type-check
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: ['22.12', 24]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run tests
-        run: pnpm run test:coverage
-        # Advisory: the suite passes and coverage is uploaded to Codecov below,
-        # but the global coverage threshold no longer fails the pipeline (the
-        # mobile milestone grew the codebase; thresholds are tuned in
-        # vitest.config.ts but CI variance/OOM can still dip under). Re-enable
-        # hard-fail once coverage is comfortably above threshold.
-        continue-on-error: true
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run pnpm audit
-        run: pnpm audit --audit-level=moderate
-        continue-on-error: true
-
-      - name: Run Snyk security scan
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        continue-on-error: true
-
-  docs:
-    name: Generate Documentation
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate API documentation
-        run: |
-          echo "Generating API documentation..."
-          mkdir -p docs/api/generated
-          cp docs/api/openapi.yaml docs/api/generated/ 2>/dev/null || true
-          cp docs/api/index.html docs/api/generated/ 2>/dev/null || true
-          echo "API documentation generated successfully"
-
-      - name: Generate component documentation
-        run: |
-          echo "Generating component documentation..."
-          pnpm exec typedoc --out docs/components --name "Component API" --mode file "src/components/" 2>/dev/null || true
-          echo "Component documentation generated successfully"
-
-      - name: Validate documentation
-        run: |
-          echo "Validating documentation..."
-          pnpm exec markdown-link-check docs/**/*.md 2>/dev/null || true
-          echo "Documentation validation completed"
-
-      - name: Upload documentation artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: docs-files
-          path: docs/
-          retention-days: 30
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [lint, test, security, docs]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build application
-        run: pnpm run build
-
-      # Post-build guard (WR-03): a future mermaid bump that changes mermaid's
-      # internal chunk layout would let ELK silently re-inline ~1.4 MB into the
-      # eager mermaid-core chunk. Red build instead of a silent regression.
-      - name: Verify ELK stays lazy
-        run: pnpm run check:elk
-
-      # Post-build guard (SEO audit H4): a Vite/Rolldown bump can re-park the
-      # shared dynamic-import preload helper inside ai-webgpu, silently making
-      # the ~6 MB web-llm chunk an eager dependency (~half the initial
-      # payload). Red build instead of a silent regression.
-      - name: Verify AI chunks stay lazy
-        run: pnpm run check:ai-lazy
-
-      # Blocking (WR-04): the `test` job is advisory (continue-on-error: true),
-      # so a mermaid bump with a stale CDN version/SRI pair would otherwise
-      # ship green end-to-end (build -> docker -> deploy) with only a red,
-      # non-blocking annotation. Fails the build job before docker-build and
-      # deploy can run.
-      - name: Verify CDN embed constants
-        run: pnpm run check:cdn-embed
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: dist-files
-          path: dist/
-          retention-days: 30
-
-  docker-build:
-    name: Build and Push Docker Image
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and test container
+        uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          file: Dockerfile
+          load: true
+          tags: mermaidstudio:verify
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Smoke test dynamic port and isolation headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name smoke -e PORT=18763 -p 127.0.0.1:18763:18763 mermaidstudio:verify
+          trap 'docker logs smoke; docker rm -f smoke' EXIT
+          curl --retry 15 --retry-connrefused --retry-delay 1 --fail -D headers.txt http://127.0.0.1:18763/index.html -o index.html
+          grep -qi 'Cross-Origin-Opener-Policy: same-origin' headers.txt
+          grep -qi 'Cross-Origin-Embedder-Policy: require-corp' headers.txt
+          grep -q 'MermaidStudio' index.html
+          docker exec smoke nginx -t
 
-  deploy-docs:
-    name: Deploy Documentation
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    needs: verify
     runs-on: ubuntu-latest
-    needs: [docs]
-    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 30
     permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      contents: write
+      packages: write
     steps:
-      - name: Download documentation artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: docs-files
-          path: docs/
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-
-      - name: Upload documentation
-        uses: actions/upload-pages-artifact@v2
-        with:
-          path: docs/
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v2
-
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [build, deploy-docs]
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: dist-files
-          path: dist/
-
-      - name: Deploy to staging
+      - uses: actions/checkout@v4
+      - name: Validate release version and choose image name
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          echo "Deploying to staging environment..."
-          echo "Deployment to staging completed"
-
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [build, docker-build]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$VERSION" = "$(node -p 'require("./package.json").version')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
-          name: dist-files
-          path: dist/
-
-      - name: Deploy to production
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish verified image
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.version.outputs.image }}:${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.image }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Create GitHub release after image publication
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          IMAGE: ${{ steps.version.outputs.image }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.image.outputs.digest }}
         run: |
-          echo "Deploying to production environment..."
-          echo "Deployment to production completed"
-
-  smoke-test:
-    name: Smoke Test
-    runs-on: ubuntu-latest
-    needs: [deploy-staging]
-    if: always()
-    steps:
-      - name: Run smoke tests
-        run: |
-          echo "Running smoke tests..."
-          echo "Smoke tests completed"
-
-      - name: Verify documentation deployment
-        run: |
-          echo "Verifying documentation deployment..."
-          if [[ "${{ job.status }}" == "success" ]]; then
-            echo "Documentation deployed successfully"
+          # Markdown backticks are literal formatting.
+          # shellcheck disable=SC2016
+          printf 'Container: `%s:%s`\n\nDigest: `%s`\n\n' "$IMAGE" "$VERSION" "$DIGEST" > release-notes.md
+          cat docs/fork-release-notes.md >> release-notes.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "MermaidStudio $VERSION" --notes-file release-notes.md
+          else
+            gh release create "$TAG" --verify-tag --title "MermaidStudio $VERSION" --notes-file release-notes.md
           fi

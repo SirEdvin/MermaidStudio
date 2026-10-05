@@ -46,46 +46,15 @@ describe('Validation Utilities', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('should reject content with script tags', () => {
-      const scriptContent = 'graph TD\n  A[<script>alert("xss")</script>]';
-      const result = validateDiagramContent(scriptContent);
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('potentially malicious');
-    });
-
-    it('should reject content with javascript: protocol', () => {
-      const jsContent = 'graph TD\n  A[javascript:alert("xss")]';
-      const result = validateDiagramContent(jsContent);
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('potentially malicious');
-    });
-
-    it('should reject content with event handlers', () => {
-      const eventContent = 'graph TD\n  A[Click me <button onclick="bad()">]';
-      const result = validateDiagramContent(eventContent);
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('potentially malicious');
-    });
-
-    it('should reject content with iframe tags', () => {
-      const iframeContent = 'graph TD\n  A[<iframe src="evil.com"></iframe>]';
-      const result = validateDiagramContent(iframeContent);
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('potentially malicious');
-    });
-
-    it('should reject content with object tags', () => {
-      const objectContent = 'graph TD\n  A[<object data="evil.swf"></object>]';
-      const result = validateDiagramContent(objectContent);
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('potentially malicious');
-    });
-
-    it('should reject content with embed tags', () => {
-      const embedContent = 'graph TD\n  A[<embed src="evil.swf">]';
-      const result = validateDiagramContent(embedContent);
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('potentially malicious');
+    it.each([
+      'connection=database', '<script>alert("xss")</script>',
+      'javascript:alert("xss")', '<button onclick="bad()">',
+      '<iframe src="evil.com"></iframe>', '<object data="evil.swf"></object>',
+      '<embed src="evil.swf">', '<SCRIPT>alert("xss")</SCRIPT>',
+      'JAVASCRIPT:alert("xss")',
+    ])('does not reject raw diagram text by pattern: %s', (text) => {
+      // This validator is not an XSS filter; rendered SVG is still sanitized.
+      expect(validateDiagramContent(`graph TD\n A[${text}]`)).toEqual({ valid: true });
     });
 
     it('should handle empty content', () => {
@@ -93,19 +62,7 @@ describe('Validation Utilities', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('should detect mixed case malicious patterns', () => {
-      const mixedCase = 'graph TD\n  A[<SCRIPT>alert("xss")</SCRIPT>]';
-      const result = validateDiagramContent(mixedCase);
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('potentially malicious');
-    });
 
-    it('should detect javascript: with different casing', () => {
-      const mixedCase = 'graph TD\n  A[JAVASCRIPT:alert("xss")]';
-      const result = validateDiagramContent(mixedCase);
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('potentially malicious');
-    });
   });
 
   describe('validateTitle', () => {

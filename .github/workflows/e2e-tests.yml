@@ -1,10 +1,8 @@
 name: E2E Tests
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+  # Legacy upstream automation is opt-in in this fork.
+  workflow_dispatch:
 
 env:
   PNPM_VERSION: '10'
