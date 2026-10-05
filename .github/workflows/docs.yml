@@ -135,7 +135,7 @@ jobs:
           echo "Documentation report generated successfully"
 
       - name: Upload report artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docs-report
           path: docs/reports/
@@ -158,7 +158,7 @@ jobs:
               title: 'Documentation Update Required',
               body: `Documentation is stale and needs to be updated.
 
-              **Last updated:** ${{ needs.check-freshness.outputs.update-type == 'missing-date' ? 'Unknown' : (needs.check-freshness.outputs.update-type == 'missing-file' ? 'Never' : 'More than 30 days ago') }}
+              **Update reason:** ${{ needs.check-freshness.outputs.update-type }}
 
               This issue was automatically created by the documentation maintenance workflow.
 
