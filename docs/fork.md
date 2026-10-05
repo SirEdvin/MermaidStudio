@@ -5,7 +5,7 @@ This public fork carries the customizations in [the release notes](fork-release-
 ## Container
 
 ```sh
-docker run --rm -p 8080:8080 ghcr.io/siredvin/mermaidstudio:0.9.3
+docker run --rm -p 8080:8080 ghcr.io/siredvin/mermaidstudio:0.9.4
 ```
 
 Use `PORT` to select the listen port. The image is unprivileged; use a high port. Serve through an HTTPS reverse proxy for browser WebGPU features. No volume is required: diagram data is in each browser's IndexedDB, not on the server. Export backups explicitly.

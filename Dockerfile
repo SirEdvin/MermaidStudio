@@ -7,7 +7,8 @@ COPY package.json pnpm-lock.yaml ./
 COPY vendor/ ./vendor/
 RUN pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm run lint && pnpm exec vitest run && pnpm run build && pnpm run check:elk && pnpm run check:ai-lazy
+# Avoid oversubscribing small GitHub runners; keep the entire suite blocking.
+RUN pnpm run lint && pnpm exec vitest run --maxWorkers=2 --testTimeout=60000 && pnpm run build && pnpm run check:elk && pnpm run check:ai-lazy
 
 FROM nginxinc/nginx-unprivileged:1.29-alpine
 ENV PORT=8080

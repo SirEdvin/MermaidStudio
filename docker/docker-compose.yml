@@ -3,7 +3,7 @@ name: mermaidstudio
 services:
   web:
     container_name: mermaidstudio
-    image: ghcr.io/siredvin/mermaidstudio:0.9.3
+    image: ghcr.io/siredvin/mermaidstudio:0.9.4
     build:
       context: ..
       dockerfile: Dockerfile
